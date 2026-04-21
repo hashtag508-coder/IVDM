@@ -16,34 +16,15 @@ jobs:
       with:
         python-version: "3.10"
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev lld
+        sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
+        pip install buildozer cython
 
-    - name: Install buildozer
-      run: pip install buildozer cython
-
-    - name: Create buildozer.spec
+    - name: Create spec
       run: |
-        cat > buildozer.spec << 'SPEC'
-[app]
-title = IVDM
-package.name = ivdm
-package.domain = org.ivdm
-source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
-version = 1.0
-requirements = python3,kivy,yt-dlp,certifi,flask
-orientation = portrait
-android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
-android.api = 33
-android.minapi = 21
-android.archs = arm64-v8a
-android.accept_sdk_license = True
-[buildozer]
-log_level = 2
-SPEC
+        printf '[app]\ntitle = IVDM\npackage.name = ivdm\npackage.domain = org.ivdm\nsource.dir = .\nsource.include_exts = py,png,jpg,kv,atlas\nversion = 1.0\nrequirements = python3,kivy,yt-dlp,certifi\norientation = portrait\nandroid.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE\nandroid.api = 33\nandroid.minapi = 21\nandroid.archs = arm64-v8a\nandroid.accept_sdk_license = True\n[buildozer]\nlog_level = 2\n' > buildozer.spec
 
     - name: Build APK
       run: buildozer -v android debug
