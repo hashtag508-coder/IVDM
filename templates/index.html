@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVDM</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0f0f0f;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;}
+.header{background:linear-gradient(135deg,#6c63ff,#3ecf8e);padding:20px;text-align:center;}
+.header h1{font-size:28px;font-weight:800;letter-spacing:2px;}
+.header p{font-size:13px;opacity:0.8;margin-top:4px;}
+.container{padding:20px;}
+.card{background:#1a1a2e;border-radius:16px;padding:20px;margin-bottom:16px;}
+.card label{font-size:13px;color:#aaa;margin-bottom:8px;display:block;}
+.input-box{width:100%;background:#0f0f1a;border:1px solid #333;border-radius:10px;padding:12px;color:#fff;font-size:14px;outline:none;}
+.input-box:focus{border-color:#6c63ff;}
+.quality-row{display:flex;gap:10px;margin-top:12px;}
+.q-btn{flex:1;padding:10px;border:2px solid #333;border-radius:10px;background:transparent;color:#aaa;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.q-btn.active{border-color:#6c63ff;color:#6c63ff;background:#6c63ff22;}
+.download-btn{width:100%;padding:16px;background:linear-gradient(135deg,#6c63ff,#3ecf8e);border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;letter-spacing:1px;}
+.progress-card{display:none;}
+.progress-bar-bg{background:#0f0f1a;border-radius:10px;height:12px;margin-top:10px;}
+.progress-bar{height:12px;border-radius:10px;background:linear-gradient(90deg,#6c63ff,#3ecf8e);width:0%;transition:width 0.3s;}
+.status-text{font-size:13px;color:#aaa;margin-top:8px;}
+.files-list{margin-top:8px;}
+.file-item{background:#0f0f1a;border-radius:10px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.file-name{font-size:13px;color:#fff;word-break:break-all;flex:1;margin-right:10px;}
+.file-size{font-size:12px;color:#6c63ff;white-space:nowrap;}
+.refresh-btn{width:100%;padding:12px;background:#1a1a2e;border:1px solid #333;border-radius:10px;color:#aaa;font-size:14px;cursor:pointer;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>⚡ IVDM</h1>
+<p>Internet Video Download Manager</p>
+</div>
+<div class="container">
+<div class="card">
+<label>Video URL</label>
+<input class="input-box" id="urlInput" type="url" placeholder="Paste video URL here..." value="{{ url }}">
+<label style="margin-top:16px;">Quality</label>
+<div class="quality-row">
+<button class="q-btn active" id="bestBtn" onclick="setQuality('best')">Best</button>
+<button class="q-btn" id="worstBtn" onclick="setQuality('worst')">Smallest</button>
+</div>
+<button class="download-btn" onclick="startDownload()">⬇ DOWNLOAD</button>
+</div>
+<div class="card progress-card" id="progressCard">
+<label>Downloading...</label>
+<div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+<div class="status-text" id="statusText">Starting...</div>
+</div>
+<div class="card">
+<label>Downloaded Files</label>
+<div class="files-list" id="filesList"></div>
+<button class="refresh-btn" onclick="loadFiles()">🔄 Refresh Files</button>
+</div>
+</div>
+<script>
+let quality = "best";
+let currentTask = null;
+
+function setQuality(q){
+quality = q;
+document.getElementById("bestBtn").classList.toggle("active", q==="best");
+document.getElementById("worstBtn").classList.toggle("active", q==="worst");
+}
+
+function startDownload(){
+const url = document.getElementById("urlInput").value.trim();
+if(!url){alert("Please enter a URL!");return;}
+document.getElementById("progressCard").style.display="block";
+document.getElementById("progressBar").style.width="0%";
+document.getElementById("statusText").textContent="Starting...";
+fetch("/download",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:url,quality:quality})})
+.then(r=>r.json()).then(d=>{
+if(d.task_id){currentTask=d.task_id;checkProgress();}
+else{document.getElementById("statusText").textContent="Error: "+d.error;}
+}).catch(e=>{document.getElementById("statusText").textContent="Error: "+e;});
+}
+
+function checkProgress(){
+if(!currentTask)return;
+fetch("/progress/"+currentTask).then(r=>r.json()).then(d=>{
+if(d.status==="downloading"){
+document.getElementById("progressBar").style.width=d.percent+"%";
+document.getElementById("statusText").textContent="Downloading: "+d.percent.toFixed(1)+"%";
+setTimeout(checkProgress,1000);
+}else if(d.status==="done"||d.status==="finished"){
+document.getElementById("progressBar").style.width="100%";
+document.getElementById("statusText").textContent="✅ Download Complete!";
+loadFiles();
+}else if(d.status==="error"){
+document.getElementById("statusText").textContent="❌ Error: "+d.message;
+}else{setTimeout(checkProgress,1000);}
+}).catch(()=>setTimeout(checkProgress,2000));
+}
+
+function loadFiles(){
+fetch("/downloads").then(r=>r.json()).then(files=>{
+const list = document.getElementById("filesList");
+if(files.length===0){list.innerHTML="<p style='color:#555;font-size:13px;'>No files yet</p>";return;}
+list.innerHTML=files.map(f=>`<div class="file-item"><span class="file-name">${f.name}</span><span class="file-size">${f.size} MB</span></div>`).join("");
+});
+}
+
+window.onload = function(){
+loadFiles();
+const url = document.getElementById("urlInput").value;
+if(url) startDownload();
+}
+</script>
+</body>
+</html>
